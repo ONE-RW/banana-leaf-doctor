@@ -13,6 +13,7 @@ CONFIG_PATH = APP_DIR / "model_config.json"
 
 IMG_SIZE = (224, 224)
 LOW_CONFIDENCE = 0.60
+MIN_PLANT_FRACTION = 0.30
 DEFAULT_CLASSES = ["cordana", "healthy", "pestalotiopsis", "sigatoka"]
 
 INFO = {
@@ -188,20 +189,29 @@ def confidence_gauge(confidence, color):
     return fig
 
 
+def plant_fraction(image):
+    img = ImageOps.exif_transpose(image).convert("RGB").resize((128, 128))
+    hsv = np.array(img.convert("HSV"), dtype=np.float32)
+    hue = hsv[..., 0] * 360.0 / 255.0
+    sat = hsv[..., 1] / 255.0
+    val = hsv[..., 2] / 255.0
+    plant = (hue >= 35) & (hue <= 165) & (sat >= 0.18) & (val >= 0.15)
+    return float(plant.mean())
+
+
 def render_results(image):
-    try:
-        model = load_model(str(MODEL_PATH))
-    except (ImportError, OSError, RuntimeError) as exc:
-        message = str(exc)
-        if "Application Control" in message or "_pywrap_tensorflow_internal" in message or "native TensorFlow" in message:
-            st.error("TensorFlow could not start because Windows blocked one of its native files.")
-            st.info("This is a Windows security policy issue, not an image or model error. Ask your device administrator to allow the TensorFlow runtime, or run this app in an approved Python environment. Then restart Streamlit.")
-        else:
-            st.error("The prediction model could not be loaded. Check the model file and TensorFlow installation.")
-            with st.expander("Technical details"):
-                st.code(message)
-        return
+    model = load_model(str(MODEL_PATH))
     class_names = load_class_names()
+
+    fraction = plant_fraction(image)
+    if fraction < MIN_PLANT_FRACTION:
+        st.warning(
+            f"This does not look like a banana leaf photo (only {fraction * 100:.0f}% of the image has "
+            "green or leaf-like colours). The model only knows four classes, so it would still give an "
+            "answer that means nothing. Please upload a close, clear photo of a banana leaf."
+        )
+        if not st.checkbox("Analyse anyway (my photo is a leaf)", key="analyze_anyway"):
+            return None
 
     with st.spinner("Analysing the leaf..."):
         probs = predict(model, image)
@@ -226,13 +236,24 @@ def render_results(image):
         st.warning("The model is not very sure about this image. Try a clearer, closer photo of a single leaf "
                    "in good light. Photos that are not banana leaves can also give unreliable results.")
 
-    st.markdown(f"**About this result:** {info['about']}")
-    if info["advice"]:
-        st.markdown("**Next steps**")
-        st.markdown("\n".join(f"- {tip}" for tip in info["advice"]))
-
-    with st.expander("View class probabilities"):
+    col_a, col_b = st.columns([1, 1.4])
+    with col_a:
+        show_plot(confidence_gauge(confidence, info["color"]))
+    with col_b:
         show_plot(probability_chart(class_names, probs))
+
+    st.markdown(f"#### About: {info['title']}")
+    st.write(info["about"])
+    if info["advice"]:
+        st.markdown("**What you can do**")
+        for tip in info["advice"]:
+            st.markdown(f"- {tip}")
+
+    with st.expander("See all probabilities"):
+        rows = sorted(zip(class_names, probs), key=lambda r: -r[1])
+        lines = ["| Class | Probability |", "|---|---|"]
+        lines += [f"| {info_for(c)['title']} | {p * 100:.2f}% |" for c, p in rows]
+        st.markdown("\n".join(lines))
 
     return name, confidence
 
@@ -254,9 +275,20 @@ def get_image():
 
 
 def render_sidebar(class_names):
+    config = load_config()
     with st.sidebar:
-        st.markdown("### Photo tips")
-        st.write("Use one clear banana leaf photo in good light. Keep the leaf in focus.")
+        st.markdown("## About this app")
+        st.write("This tool uses a deep learning model (MobileNetV2) to recognise banana leaf diseases from a photo.")
+        st.markdown("**Classes**")
+        for c in class_names:
+            i = info_for(c)
+            st.markdown(f"<span class='legend-chip' style='background:{i['color']}'>{i['title']}</span>",
+                        unsafe_allow_html=True)
+        if "test_accuracy" in config:
+            st.metric("Test accuracy", f"{config['test_accuracy'] * 100:.1f}%")
+        st.markdown("**Tips for a good photo**")
+        st.markdown("- One leaf, filling most of the picture\n- Good daylight, no strong shadow\n"
+                    "- Keep the leaf in focus\n- Avoid heavy filters")
 
 
 def main():
@@ -286,13 +318,13 @@ def main():
     left, right = st.columns([1, 1.35], gap="large")
 
     with left:
-        st.markdown("### Add a leaf photo")
+        st.markdown("### 1. Add a leaf photo")
         image = get_image()
         if image is not None:
             show_image(image, caption="Your image")
 
     with right:
-        st.markdown("### Result")
+        st.markdown("### 2. Result")
         if image is None:
             st.markdown(
                 """
