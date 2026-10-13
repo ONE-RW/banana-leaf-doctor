@@ -66,35 +66,45 @@ INFO = {
 CSS = """
 <style>
 #MainMenu, footer {visibility: hidden;}
-.block-container {padding-top: 1.5rem; max-width: 1200px;}
+.block-container {padding: 2rem 1.5rem 2.5rem; max-width: 1120px;}
+.stApp {background: #F4F8F2;}
+[data-testid="stSidebar"] {background: #EEF4EB;}
+.eyebrow {text-transform: uppercase; letter-spacing: .12em; font-size: .76rem; font-weight: 700; color: #DDF2D9;}
 .hero {
-    background: linear-gradient(120deg, #1E7A45 0%, #2E9E5B 55%, #8CC84B 100%);
-    padding: 2rem 2.2rem; border-radius: 20px; color: white; margin-bottom: 1.4rem;
-    box-shadow: 0 8px 24px rgba(46,158,91,0.25);
+    background: linear-gradient(120deg, #174F36 0%, #247A4A 65%, #65A950 100%);
+    padding: 2.4rem 2.5rem; border-radius: 24px; color: white; margin-bottom: 1.8rem;
+    box-shadow: 0 12px 30px rgba(31,85,51,.16);
 }
-.hero h1 {margin: 0; font-size: 2.2rem; color: white;}
-.hero p {margin: 0.5rem 0 0 0; font-size: 1.05rem; opacity: 0.95; color: white;}
+.hero h1 {margin: .35rem 0 0; font-size: clamp(2rem, 4vw, 2.7rem); color: white; letter-spacing: -.035em;}
+.hero p {max-width: 720px; margin: .55rem 0 0; font-size: 1.04rem; opacity: .92; color: white; line-height: 1.6;}
+.section-label {font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: #62806A; margin: .3rem 0 .2rem;}
+.section-title {font-size: 1.35rem; font-weight: 700; color: #1F3525; margin: 0 0 1rem;}
 .card {
-    background: white; border-radius: 18px; padding: 1.3rem 1.5rem;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.07); margin-bottom: 1rem;
+    background: white; border: 1px solid #E4ECE1; border-radius: 20px; padding: 1.35rem 1.5rem;
+    box-shadow: 0 8px 24px rgba(31,58,38,.045); margin-bottom: 1rem;
 }
 .card h3 {margin-top: 0;}
 .result-card {
-    background: white; border-radius: 18px; padding: 1.3rem 1.6rem; margin-bottom: 1rem;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+    background: white; border: 1px solid #E4ECE1; border-radius: 20px; padding: 1.3rem 1.5rem; margin-bottom: .7rem;
+    box-shadow: 0 8px 24px rgba(31,58,38,.05);
 }
+.upload-card {background:white; border:1px solid #E4ECE1; border-radius:20px; padding:1.35rem 1.35rem .6rem; box-shadow:0 8px 24px rgba(31,58,38,.045);}
+.upload-hint {font-size:.92rem; line-height:1.55; color:#627365; margin:.2rem 0 1rem;}
 .chip {
     display: inline-block; color: white; padding: 0.25rem 0.8rem; border-radius: 999px;
     font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em;
 }
 .result-title {font-size: 2rem; font-weight: 700; margin: 0.6rem 0 0.2rem 0;}
-.result-conf {font-size: 1.15rem; color: #4a5a4a;}
-.result-conf b {font-size: 1.6rem;}
+.result-conf {font-size: 1rem; color: #607064;}
+.result-conf b {font-size: 1.35rem; color:#263B2B;}
 .legend-chip {
     display: inline-block; padding: 0.3rem 0.9rem; border-radius: 999px; color: white;
     font-weight: 600; margin: 0.25rem 0.3rem 0.25rem 0; font-size: 0.9rem;
 }
-.disclaimer {font-size: 0.85rem; color: #6b7a6b; text-align: center; margin-top: 1.5rem;}
+.disclaimer {font-size: 0.82rem; color: #6b7a6b; text-align: center; margin-top: 2rem; padding-top:1rem; border-top:1px solid #E1E9DE;}
+[data-testid="stFileUploader"] {border-radius: 14px;}
+[data-testid="stMetric"] {background:white; padding:.9rem 1rem; border:1px solid #E4ECE1; border-radius:14px;}
+@media (max-width: 700px) { .block-container {padding:1rem .8rem 2rem;} .hero {padding:1.6rem 1.4rem; border-radius:18px;} }
 </style>
 """
 
@@ -259,12 +269,13 @@ def render_results(image):
 
 
 def get_image():
-    use_camera = st.checkbox("Use the camera instead of uploading a file")
-    if use_camera:
-        chosen = st.camera_input("Take a photo of the leaf", label_visibility="collapsed")
+    source = st.radio("Photo source", ["Upload photo", "Use camera"], horizontal=True,
+                      label_visibility="collapsed")
+    if source == "Use camera":
+        chosen = st.camera_input("Take a photo of the leaf")
     else:
-        chosen = st.file_uploader("Choose a leaf image", type=["jpg", "jpeg", "png"],
-                                  label_visibility="collapsed")
+        chosen = st.file_uploader("Drop a leaf photo here or browse files", type=["jpg", "jpeg", "png"],
+                                  help="JPG or PNG · Use a clear, close photo in daylight")
     if chosen is None:
         return None
     try:
@@ -301,9 +312,9 @@ def main():
     st.markdown(
         """
         <div class="hero">
-            <h1>🍌 Banana Leaf Doctor</h1>
-            <p>Upload a photo of a banana leaf. The AI model tells you if it is healthy or has
-            cordana, sigatoka or pestalotiopsis, and shows how confident it is.</p>
+            <div class="eyebrow">Banana crop health</div>
+            <h1>🍃 Banana Leaf Doctor</h1>
+            <p>A clear, simple check for common banana leaf diseases. Add a photo to see the most likely result and practical next steps.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -315,24 +326,27 @@ def main():
                 "output and put them in the same folder as `app.py`, then refresh this page.")
         st.stop()
 
-    left, right = st.columns([1, 1.35], gap="large")
+    left, right = st.columns([.9, 1.35], gap="large", vertical_alignment="top")
 
     with left:
-        st.markdown("### 1. Add a leaf photo")
+        st.markdown('<div class="section-label">Step 1</div><div class="section-title">Add a leaf photo</div>', unsafe_allow_html=True)
+        st.markdown('<div class="upload-card"><p class="upload-hint">Choose a clear photo with one leaf filling most of the frame.</p>', unsafe_allow_html=True)
         image = get_image()
         if image is not None:
-            show_image(image, caption="Your image")
+            show_image(image, caption="Photo ready for analysis")
+        st.markdown('</div>', unsafe_allow_html=True)
+        with st.expander("Photo tips"):
+            st.markdown("- Use daylight and keep the leaf in focus\n- Avoid strong shadows and filters\n- Include one leaf, close up")
 
     with right:
-        st.markdown("### 2. Result")
+        st.markdown('<div class="section-label">Step 2</div><div class="section-title">Leaf health report</div>', unsafe_allow_html=True)
         if image is None:
             st.markdown(
                 """
                 <div class="card">
-                    <h3>Waiting for a photo</h3>
-                    <p>Add a banana leaf image on the left. The result, the confidence and a probability
-                    chart will appear here.</p>
-                    <p><b>The model can recognise:</b></p>
+                    <h3 style="margin-bottom:.35rem">Your report will appear here</h3>
+                    <p style="color:#68786B;margin-top:0">Upload or take a photo to get a prediction and guidance.</p>
+                    <p style="margin-bottom:.4rem"><b>Recognised conditions</b></p>
                     """
                 + "".join(
                     f"<span class='legend-chip' style='background:{info_for(c)['color']}'>{info_for(c)['title']}</span>"
