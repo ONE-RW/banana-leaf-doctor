@@ -220,8 +220,7 @@ def render_results(image):
             "green or leaf-like colours). The model only knows four classes, so it would still give an "
             "answer that means nothing. Please upload a close, clear photo of a banana leaf."
         )
-        if not st.checkbox("Analyse anyway (my photo is a leaf)", key="analyze_anyway"):
-            return None
+        return None
 
     with st.spinner("Analysing the leaf..."):
         probs = predict(model, image)
@@ -285,30 +284,11 @@ def get_image():
         return None
 
 
-def render_sidebar(class_names):
-    config = load_config()
-    with st.sidebar:
-        st.markdown("## About this app")
-        st.write("This tool uses a deep learning model (MobileNetV2) to recognise banana leaf diseases from a photo.")
-        st.markdown("**Classes**")
-        for c in class_names:
-            i = info_for(c)
-            st.markdown(f"<span class='legend-chip' style='background:{i['color']}'>{i['title']}</span>",
-                        unsafe_allow_html=True)
-        if "test_accuracy" in config:
-            st.metric("Test accuracy", f"{config['test_accuracy'] * 100:.1f}%")
-        st.markdown("**Tips for a good photo**")
-        st.markdown("- One leaf, filling most of the picture\n- Good daylight, no strong shadow\n"
-                    "- Keep the leaf in focus\n- Avoid heavy filters")
-
-
 def main():
     st.set_page_config(page_title="Banana Leaf Doctor", page_icon="🍌", layout="wide")
     st.markdown(CSS, unsafe_allow_html=True)
 
     class_names = load_class_names()
-    render_sidebar(class_names)
-
     st.markdown(
         """
         <div class="hero">
